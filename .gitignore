@@ -1,0 +1,6 @@
+ml/venv/
+__pycache__/
+*.pyc
+*.pkl
+*.h5
+.env
