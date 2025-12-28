@@ -1,0 +1,37 @@
+<script>
+const API = "https://traffic-g8bi.onrender.com";
+
+const map = L.map('map').setView([12.9716,77.5946],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let line;
+
+async function loadRoutes(){
+ const body = {
+   origin:{lat:12.9165,lng:77.6230,name:"Silk Board"},
+   destination:{lat:12.9698,lng:77.7500,name:"Whitefield"},
+   time_of_day:"now"
+ };
+
+ const r = await fetch(API+"/api/routes",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify(body)
+ });
+
+ const d = await r.json();
+
+ if(line) map.removeLayer(line);
+ line = L.polyline(d[0].coordinates,{
+   color: d[0].traffic_level=="low"?"green":
+          d[0].traffic_level=="medium"?"orange":"red",
+   weight:5
+ }).addTo(map);
+
+ alert("Traffic Level: "+d[0].traffic_level.toUpperCase());
+}
+
+setInterval(loadRoutes,600000);
+</script>
+<button onclick="loadRoutes()">Load Routes</button>
+<div id="map" style="height:600px;"></div>
