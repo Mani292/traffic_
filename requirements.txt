@@ -16,6 +16,6 @@ itsdangerous==2.1.2
 click==8.1.7
 Werkzeug==3.0.3
 MarkupSafe==2.1.5
-certifi==2024.6.3
+certifi==2024.6.2
 charset-normalizer==3.3.2
 idna==3.4
