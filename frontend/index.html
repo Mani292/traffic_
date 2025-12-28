@@ -1,36 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Bengaluru Traffic Intelligence System</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<title>Bengaluru AI Traffic</title>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
 <style>
-body{margin:0;font-family:Arial;}
-#map{height:90vh;}
-#panel{
- position:absolute;top:10px;left:10px;
- background:#fff;padding:12px;border-radius:8px;
- width:260px;z-index:999;
- box-shadow:0 0 10px rgba(0,0,0,.2);
-}
-.route{padding:5px;border-radius:5px;margin-top:5px;cursor:pointer}
-.low{background:#c8f7c5}
-.medium{background:#fff3b0}
-.high{background:#f7c5c5}
+body{margin:0;font-family:Segoe UI}
+#map{height:100vh}
+.panel{position:absolute;top:10px;left:10px;background:white;padding:10px;width:260px;z-index:1000;border-radius:8px}
+.route{background:#fff3cd;padding:6px;margin:4px 0;cursor:pointer}
+.service{font-size:13px;border-bottom:1px solid #ddd;padding:4px}
+.incident{font-size:13px;color:red}
 </style>
 </head>
+
 <body>
 
-<div id="panel">
-<h3>🗺️ Bengaluru AI Traffic</h3>
+<div class="panel">
+<h3>Bengaluru AI Traffic</h3>
 <button onclick="loadRoutes()">Find Best Routes</button>
 <div id="routes"></div>
 <hr>
-<h4>🏥 Nearby Services</h4>
-<div id="services"></div>
+<div id="servicesPanel"></div>
 <hr>
-<h4>🚧 Incidents</h4>
-<div id="incidents"></div>
+<div id="incidentsPanel"></div>
 </div>
 
 <div id="map"></div>
@@ -38,66 +34,64 @@ body{margin:0;font-family:Arial;}
 <script>
 const API="https://traffic-g8bi.onrender.com";
 
-const map=L.map("map").setView([12.9716,77.5946],11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+let map=L.map('map').setView([12.9716,77.5946],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-let poly=null,routeCache={};
+let controls=[],currentRoutes=[];
 
 async function loadRoutes(){
- const res=await fetch(API+"/api/routes",{
-  method:"POST",
-  headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({
-    origin:{lat:12.9165,lng:77.6230,name:"Silk Board"},
-    destination:{lat:12.9698,lng:77.7500,name:"Whitefield"},
-    time_of_day:"now"
-  })
- });
-
- const data=await res.json();
+ const res=await fetch(API+"/api/routes",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({
+  origin:{lat:12.9716,lng:77.5946,name:"MG Road"},
+  destination:{lat:12.9352,lng:77.6245,name:"Silk Board"},
+  time_of_day:"now"
+ })});
+ const routes=await res.json();
+ currentRoutes=routes;
  document.getElementById("routes").innerHTML="";
- routeCache={};
-
- data.forEach(r=>{
-   routeCache[r.route_id]=r;
-   const d=document.createElement("div");
-   d.className="route "+r.traffic_level;
-   d.innerHTML=`${r.name}<br>
-   Speed: ${r.predicted_speed.toFixed(1)} km/h`;
-   d.onclick=()=>showRoute(r.route_id);
-   document.getElementById("routes").appendChild(d);
+ routes.forEach((r,i)=>{
+   document.getElementById("routes").innerHTML+=
+   `<div class="route" onclick="showRoute(${i})">
+     ${r.name}<br>Speed: ${r.predicted_speed} km/h
+   </div>`;
  });
+ showRoute(0);
 }
 
-function showRoute(id){
- if(poly) map.removeLayer(poly);
- const r=routeCache[id];
- poly=L.polyline(r.coordinates,{
-  color:r.traffic_level=="low"?"green":
-        r.traffic_level=="medium"?"orange":"red",
-  weight:5
+async function showRoute(i){
+ controls.forEach(c=>map.removeControl(c));
+ let r=currentRoutes[i];
+ let ctrl=L.Routing.control({
+  waypoints:r.coordinates.map(p=>L.latLng(p[0],p[1])),
+  show:false,addWaypoints:false,routeWhileDragging:false
  }).addTo(map);
- map.fitBounds(poly.getBounds());
- loadServices(id);
+ controls.push(ctrl);
+ await loadServices(r.route_id);
+ await loadIncidents();
 }
 
 async function loadServices(id){
- const r=await fetch(API+"/api/services/"+id);
- const s=await r.json();
- document.getElementById("services").innerHTML=
-  s.map(x=>`• ${x.name} (${x.type})`).join("<br>");
+ const res=await fetch(API+"/api/services/"+id);
+ const data=await res.json();
+ const s=data.services;
+ let html="<h4>Nearby Services</h4>";
+ s.forEach(x=>{
+  html+=`<div class="service"><b>${x.name}</b><br>${x.type} – ${x.distance_from_route} km</div>`;
+ });
+ document.getElementById("servicesPanel").innerHTML=html;
 }
 
 async function loadIncidents(){
- const r=await fetch(API+"/api/incidents");
- const d=await r.json();
- document.getElementById("incidents").innerHTML=
-  d.map(x=>"⚠ "+x.description).join("<br>");
+ const res=await fetch(API+"/api/incidents");
+ const inc=await res.json();
+ let html="<h4>Incidents</h4>";
+ inc.forEach(x=>{
+  html+=`<div class="incident">⚠ ${x.description}</div>`;
+ });
+ document.getElementById("incidentsPanel").innerHTML=html;
 }
 
 setInterval(loadRoutes,600000);
-setInterval(loadIncidents,600000);
-loadIncidents();
+loadRoutes();
 </script>
 
 </body>
