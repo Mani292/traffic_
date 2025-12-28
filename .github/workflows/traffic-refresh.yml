@@ -1,0 +1,15 @@
+name: Traffic Auto Refresh
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Traffic Prediction
+        run: |
+          curl -X POST https://traffic-g8bi.onrender.com/api/routes ^
+          -H "Content-Type: application/json" ^
+          -d "{\"origin\":{\"lat\":12.9165,\"lng\":77.6230,\"name\":\"Silk Board\"},\"destination\":{\"lat\":12.9698,\"lng\":77.7500,\"name\":\"Whitefield\"},\"time_of_day\":\"now\"}"
